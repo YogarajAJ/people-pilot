@@ -14,8 +14,8 @@ class AttendanceAPI(Resource):
             data = request.get_json()
             if not data or "Employee_id" not in data or "clock_in" not in data:
                 return response_wrapper(400, "Employee_id and clock_in flag are required", None)
-
             employee_id = data["Employee_id"]
+
             is_clock_in = data["clock_in"]  # True for clock-in, False for clock-out
             timestamp = datetime.utcnow().isoformat()
 
