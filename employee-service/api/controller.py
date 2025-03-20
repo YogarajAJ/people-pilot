@@ -1,16 +1,26 @@
 from flask import Blueprint, request
-from api.service import add_employee, get_employee, get_all_employees, verify_employee_exists
+from api.service import add_employee, login_employee, get_employee, get_all_employees, verify_employee_exists
 from utils.response_wrapper import response_wrapper
 
-employee_blueprint = Blueprint("employee", __name__)
+employee_blueprint = Blueprint("employee", __name__, url_prefix="/api/employees")
 
 
-@employee_blueprint.route("", methods=["POST"])
+@employee_blueprint.route("/register", methods=["POST"])
 def create_employee():
     """Create a new employee"""
     try:
         data = request.get_json()
         return add_employee(data)
+    except Exception as e:
+        return response_wrapper(500, str(e), None)
+
+
+@employee_blueprint.route("/login", methods=["POST"])
+def login():
+    """Employee login"""
+    try:
+        data = request.get_json()
+        return login_employee(data)
     except Exception as e:
         return response_wrapper(500, str(e), None)
 
@@ -42,8 +52,7 @@ def check_employee_exists():
         if not employee_id:
             return response_wrapper(400, "Employee ID is required", None)
 
-        exists = verify_employee_exists(employee_id)
-        return response_wrapper(200, "Employee exists" if exists else "Employee does not exist", {"exists": exists})
+        return verify_employee_exists(employee_id)
 
     except Exception as e:
         return response_wrapper(500, str(e), None)
