@@ -18,11 +18,15 @@ def get_next_employee_id():
 
 def add_employee(data):
     """Register a new employee with password encryption"""
+    """employe shift hours"""
     required_fields = ["name", "age", "date_of_birth", "email", "address", "blood_type",
-                       "phone_number", "designation", "ctc", "password"]
+                       "phone_number", "designation", "ctc", "password","employee_shift_hours"]
 
-    if not data or not all(k in data for k in required_fields):
+    # if not data or not all(k in data for k in required_fields):
+    #     return response_wrapper(400, "Missing required fields", None)
+    if not data or any(k not in data or data[k] in [None, ""] for k in required_fields):
         return response_wrapper(400, "Missing required fields", None)
+
 
     email = data["email"]
 
@@ -48,6 +52,7 @@ def add_employee(data):
         "designation": data["designation"],
         "ctc": data["ctc"],
         "password": hashed_password,  # Store hashed password
+        "employee_shift_hours": data["employee_shift_hours"],
         "created_at": datetime.utcnow().isoformat(),
         "last_login": None
     }
