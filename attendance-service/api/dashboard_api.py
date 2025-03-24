@@ -5,12 +5,14 @@ import requests
 import logging
 import os
 from utils.response_wrapper import response_wrapper
+from server.firestore import FirestoreDB  # Import your database module
+from api.attendance_controller import AttendanceByDateAPI  # Import your controller classes
 
 # API endpoints
-# EMPLOYEE_API_URL = "http://127.0.0.1:5002/api/employee/all"
-EMPLOYEE_API_URL = os.environ.get('EMPLOYEE_SERVICE_URL', 'http://localhost:5002')
+EMPLOYEE_SERVICE_URL = os.environ.get('EMPLOYEE_SERVICE_URL', 'http://localhost:5002')
 
-
+# Create db instance if needed
+db = FirestoreDB()
 
 class DashboardAPI(Resource):
     def get(self):
@@ -30,9 +32,9 @@ class DashboardAPI(Resource):
             if not date_str:
                 date_str = datetime.utcnow().date().isoformat()
                 
-            # Get employees from employee service
+            # Get employees from employee service - FIXED URL
             try:
-                response = requests.get(EMPLOYEE_API_URL)
+                response = requests.get(f"{EMPLOYEE_SERVICE_URL}/api/employee/all")
                 if response.status_code != 200:
                     return response_wrapper(500, f"Failed to fetch employees: {response.status_code}", None)
                 
@@ -63,21 +65,9 @@ class DashboardAPI(Resource):
                 logging.error(f"Error fetching employees: {str(e)}")
                 return response_wrapper(500, f"Error fetching employees: {str(e)}", None)
             
-            # Get today's attendance records
-            attendance_url = f"http://127.0.0.1:5003/api/attendance/date?date={date_str}"
-            try:
-                response = requests.get(attendance_url)
-                if response.status_code != 200:
-                    return response_wrapper(500, f"Failed to fetch attendance: {response.status_code}", None)
-                
-                attendance_data = response.json()
-                if attendance_data.get("status") != 200:
-                    return response_wrapper(500, f"Attendance API error: {attendance_data.get('message')}", None)
-                
-                today_records = attendance_data.get("data", [])
-            except Exception as e:
-                logging.error(f"Error fetching attendance: {str(e)}")
-                return response_wrapper(500, f"Error fetching attendance: {str(e)}", None)
+            # CHANGE 1: Direct database access instead of API call
+            # Get today's attendance records directly from database
+            today_records = db.get_all_records_by_date(date_str)
             
             # Calculate attendance stats
             on_time_count = 0
@@ -162,28 +152,27 @@ class DashboardAPI(Resource):
             end_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             start_date = end_date - timedelta(days=6)  # 7 days including today
             
-            # Fetch attendance range summary
-            range_url = f"http://127.0.0.1:5003/api/attendance/range?start_date={start_date.isoformat()}&end_date={end_date.isoformat()}"
-            try:
-                response = requests.get(range_url)
-                if response.status_code == 200:
-                    range_data = response.json()
-                    if range_data.get("status") == 200:
-                        daily_summaries = range_data.get("data", {}).get("daily_summaries", [])
-                        
-                        # Format data for chart
-                        for day in daily_summaries:
-                            day_str = day.get("date", "")
-                            display_date = datetime.strptime(day_str, "%Y-%m-%d").strftime("%a")  # Short day name
-                            weekly_data.append({
-                                "date": day_str,
-                                "display_date": display_date,
-                                "present": day.get("present_count", 0),
-                                "total": day.get("total_employees", 0)
-                            })
-            except Exception as e:
-                logging.error(f"Error fetching weekly data: {str(e)}")
-                # Continue with empty weekly data
+            # CHANGE 2: Fetch weekly data directly from the database
+            # Process each day in the range manually
+            current_date = start_date
+            while current_date <= end_date:
+                current_date_str = current_date.isoformat()
+                day_records = db.get_all_records_by_date(current_date_str)
+                
+                # Count present employees for this day
+                present_count = len(set(record.get("employee_id") for record in day_records))
+                
+                # Format data for chart
+                display_date = current_date.strftime("%a")  # Short day name
+                weekly_data.append({
+                    "date": current_date_str,
+                    "display_date": display_date,
+                    "present": present_count,
+                    "total": total_employees
+                })
+                
+                # Move to next day
+                current_date += timedelta(days=1)
             
             # Calculate accurate percentages
             present_percentage = round((present_count / total_employees * 100), 1) if total_employees > 0 else 0
