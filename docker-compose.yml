@@ -1,0 +1,28 @@
+networks:
+  people-pilot-network:
+
+services:
+  attendance-service:
+    build:
+      context: ./attendance-service
+    ports:
+      - "5003:5003"
+    restart: always
+    networks:
+      - people-pilot-network
+    volumes:
+      - ./serviceAccountKey.json:/serviceAccountKey.json
+    environment:
+      - EMPLOYEE_SERVICE_URL=http://employee-service:5002
+      # Add other environment variables as needed
+
+  employee-service:
+    build:
+      context: ./employee-service
+    ports:
+      - "5002:5002"
+    restart: always
+    networks:
+      - people-pilot-network
+    volumes:
+      - ./serviceAccountKey.json:/serviceAccountKey.json

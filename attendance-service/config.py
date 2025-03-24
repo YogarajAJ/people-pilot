@@ -2,11 +2,10 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Get the absolute path of the service account key in the root directory
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # people-pilot/
-FIREBASE_CREDENTIALS_PATH = os.path.join(BASE_DIR, "serviceAccountKey.json")
+# Get credentials path from an environment variable (default to /serviceAccountKey.json)
+FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS", "/serviceAccountKey.json")
 
-# Check if the file exists before initializing Firebase
+# Check if the credentials file exists
 if not os.path.exists(FIREBASE_CREDENTIALS_PATH):
     raise FileNotFoundError(f"Firebase credentials file not found: {FIREBASE_CREDENTIALS_PATH}")
 
