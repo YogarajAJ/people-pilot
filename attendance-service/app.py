@@ -4,6 +4,7 @@ from api.attendance_controller import AttendanceAPI, AttendanceByDateAPI, Employ
 from api.attendance_summary_api import AttendanceSummaryAPI, AttendanceRangeAPI
 from api.dashboard_api import DashboardAPI
 from flask_cors import CORS
+import os
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -22,4 +23,5 @@ api.add_resource(AttendanceRangeAPI, "/api/attendance/range")  # Get attendance 
 api.add_resource(DashboardAPI, "/api/dashboard")  # Get dashboard data for cards and charts
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5003)
+    port = int(os.environ.get("PORT", 5003))
+    app.run(host="0.0.0.0", port=port, debug=True)
