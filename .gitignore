@@ -7,5 +7,4 @@
 /dataSources/
 /dataSources.local.xml
 serviceAccountKey.json
-serviceAccountKey.json
-_pycache_/
+/_pycache_/
