@@ -34,7 +34,7 @@ class AttendanceSummaryAPI(Resource):
             
             # Get all employees from the employee service
             try:
-                response = requests.get(EMPLOYEE_API_URL)
+                response = requests.get(f"{EMPLOYEE_API_URL}/api/employee/all")
                 if response.status_code != 200:
                     return response_wrapper(500, f"Failed to fetch employees: {response.status_code}", None)
                 
@@ -155,7 +155,7 @@ class AttendanceRangeAPI(Resource):
             
             # Get all employees from the employee service
             try:
-                response = requests.get(EMPLOYEE_API_URL)
+                response = requests.get(f"{EMPLOYEE_API_URL}/api/employee/all")
                 if response.status_code != 200:
                     return response_wrapper(500, f"Failed to fetch employees: {response.status_code}", None)
                 
