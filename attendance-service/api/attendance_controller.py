@@ -3,6 +3,9 @@ from flask_restful import Resource
 from server.firestore import FirestoreDB
 from datetime import datetime
 import uuid
+import logging
+from firebase_admin import firestore
+
 from utils.response_wrapper import response_wrapper
 from geopy.distance import geodesic
 
@@ -22,14 +25,40 @@ class AttendanceAPI(Resource):
             employee_id = data["Employee_id"]
 
             is_clock_in = data["clock_in"]  # True for clock-in, False for clock-out
-            user_location = (data["latitude"], data["longitude"])  # (lat, lon)
+            # user_location = (data["latitude"], data["longitude"])  # (lat, lon)
+            latitude = data.get("latitude")
+            longitude = data.get("longitude")
+
+            if latitude is None or longitude is None: #add check for latitute and logitute
+               return response_wrapper(400, "Latitude and longitude are required", None)
+
+            user_location = (latitude, longitude)  # ✅ Prevents crash
+
             timestamp = datetime.utcnow().isoformat()
 
             # Check if employee is within the geofenced location
             distance = geodesic(OFFICE_LOCATION, user_location).km
             if distance > ALLOWED_RADIUS_KM:
-                return response_wrapper(403, "You are outside the allowed location for clock-in/out",
-                                        {"distance_km": distance})
+                 log_entry = {
+                    "employee_id": employee_id,
+                    "timestamp": timestamp,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                     "distance_km": distance,
+                     "status": "Outside allowed location"
+                }
+                # Save in Firestore (Optional)
+                # db.add_document("attendance_logs", str(uuid.uuid4()), log_entry)
+            firestore_db = firestore.client()
+            firestore_db.collection("attendance_logs").document(str(uuid.uuid4())).set(log_entry)
+
+
+                # Save in a log file
+            logging.info(f"Employee {employee_id} tried to clock-in/out outside allowed location: {distance:.2f} km away")
+
+                # return response_wrapper(403, "You are outside the allowed location for clock-in/out",
+                                        # {"distance_km": distance})
+
 
             if is_clock_in:
                 # Clock-In logic

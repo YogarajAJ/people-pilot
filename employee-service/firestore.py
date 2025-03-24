@@ -20,7 +20,7 @@ db = firestore.client()
 class FirestoreDB:
     def __init__(self):
         self.db = db  # ✅ Use the already initialized Firestore client
-
+        
     def add_document(self, collection, doc_id, data):
         self.db.collection(collection).document(doc_id).set(data)
 
@@ -31,5 +31,8 @@ class FirestoreDB:
     def get_all_documents(self, collection):
         docs = self.db.collection(collection).stream()
         return [doc.to_dict() for doc in docs]
-
+    def get_document_by_field(self, collection, field_name, field_value):
+        docs = self.db.collection(collection).where(field_name, "==", field_value).stream()
+        return [doc.to_dict() for doc in docs]
+    
 
