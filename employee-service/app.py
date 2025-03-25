@@ -1,8 +1,12 @@
 from flask import Flask
+from flask_restful import Api
 from api.controller import employee_blueprint
+from flask_cors import CORS
 import os
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+api = Api(app)
 
 # Register Blueprints
 app.register_blueprint(employee_blueprint, url_prefix="/api/employee")
