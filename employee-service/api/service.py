@@ -1,10 +1,39 @@
 import bcrypt
+import string
+import random
 from datetime import datetime
 from firestore import FirestoreDB
 from utils.response_wrapper import response_wrapper
 
 db = FirestoreDB()
 EMPLOYEE_COLLECTION = "employees"
+
+
+def generate_unique_password(length=12):
+    """Generate a unique, secure password"""
+    # Define character sets for password
+    lowercase = string.ascii_lowercase
+    uppercase = string.ascii_uppercase
+    digits = string.digits
+    special_chars = "!@#$%^&*()_-+=<>?"
+    
+    # Ensure password has at least one character from each set
+    password = [
+        random.choice(lowercase),
+        random.choice(uppercase),
+        random.choice(digits),
+        random.choice(special_chars)
+    ]
+    
+    # Fill the rest of the password
+    all_chars = lowercase + uppercase + digits + special_chars
+    password.extend(random.choice(all_chars) for _ in range(length - 4))
+    
+    # Shuffle the password characters
+    random.shuffle(password)
+    
+    # Convert list to string
+    return ''.join(password)
 
 
 def get_next_employee_id():
@@ -33,9 +62,9 @@ def get_next_employee_id():
 
 
 def add_employee(data):
-    """Register a new employee with password encryption"""
+    """Register a new employee with auto-generated password"""
     required_fields = ["name", "age", "date_of_birth", "email", "address", "blood_type",
-                       "phone_number", "designation", "ctc", "password", "employee_shift_hours"]
+                       "phone_number", "designation", "ctc", "employee_shift_hours"]
 
     if not data or any(k not in data or data[k] in [None, ""] for k in required_fields):
         return response_wrapper(400, "Missing required fields", None)
@@ -49,9 +78,12 @@ def add_employee(data):
 
     # Generate a unique employee ID
     employee_id = get_next_employee_id()
-
+    
+    # Generate a unique password
+    raw_password = generate_unique_password()
+    
     # Hash the password before storing
-    hashed_password = bcrypt.hashpw(data["password"].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    hashed_password = bcrypt.hashpw(raw_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     employee_data = {
         "id": employee_id,
@@ -72,7 +104,11 @@ def add_employee(data):
 
     # Add the document with employee_id as the document ID
     db.add_document(EMPLOYEE_COLLECTION, employee_id, employee_data)
-    return response_wrapper(201, "Employee registered successfully", employee_data)
+    
+    # Return the employee data with the raw password for first-time use
+    response_data = employee_data.copy()
+    response_data["raw_password"] = raw_password  # Include raw password in response only
+    return response_wrapper(201, "Employee registered successfully with auto-generated password", response_data)
 
 
 def update_employee(employee_id, data):
@@ -91,10 +127,27 @@ def update_employee(employee_id, data):
         for emp in existing_emails:
             if emp["id"] != employee_id:  # If email belongs to a different employee
                 return response_wrapper(400, "Email already in use by another employee", None)
+    
+    # Create a copy of the data for the response
+    response_data = {}
             
-    # Hash password if provided
-    if "password" in data and data["password"]:
-        data["password"] = bcrypt.hashpw(data["password"].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    # Handle password update
+    if "update_password" in data and data["update_password"] is True:
+        # Generate a new password if requested
+        raw_password = generate_unique_password()
+        hashed_password = bcrypt.hashpw(raw_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        data["password"] = hashed_password
+        # Remove update_password flag as it's not needed in the database
+        del data["update_password"]
+        # Add the raw password to the response
+        response_data["raw_password"] = raw_password
+    elif "password" in data:
+        # If a specific password is provided, hash it
+        if data["password"]:
+            data["password"] = bcrypt.hashpw(data["password"].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        else:
+            # If empty password is provided, remove it from the update
+            del data["password"]
         
     # Add last updated timestamp
     data["updated_at"] = datetime.utcnow().isoformat()
@@ -102,9 +155,13 @@ def update_employee(employee_id, data):
     # Update employee data
     db.update_document(EMPLOYEE_COLLECTION, employee_id, data)
     
-    # Fetch and return updated employee data
+    # Fetch updated employee data
     updated_employee = db.get_document(EMPLOYEE_COLLECTION, employee_id)
-    return response_wrapper(200, "Employee updated successfully", updated_employee)
+    
+    # Merge the updated employee with any response data (like raw password)
+    response_data.update(updated_employee)
+    
+    return response_wrapper(200, "Employee updated successfully", response_data)
 
 
 def login_employee(data):

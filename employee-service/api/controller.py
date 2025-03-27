@@ -16,10 +16,23 @@ employee_blueprint = Blueprint("employee", __name__)
 
 @employee_blueprint.route("/register", methods=["POST"])
 def create_employee():
-    """Create a new employee"""
+    """Create a new employee with auto-generated password"""
     try:
         data = request.get_json()
-        return add_employee(data)
+        result = add_employee(data)
+        
+        # If successful, log the auto-generated password but don't store it
+        if result.get("status") == 201 and "raw_password" in result.get("data", {}):
+            print(f"Auto-generated password for {result['data'].get('email')}: {result['data']['raw_password']}")
+            
+            # You may want to send the password via email here
+            # send_welcome_email(result['data']['email'], result['data']['raw_password'])
+            
+            # Remove the raw password from the response data before sending to client
+            # (optional - you might want to keep it for first-time login purposes)
+            # del result['data']['raw_password']
+        
+        return result
     except Exception as e:
         return response_wrapper(500, str(e), None)
 
@@ -45,10 +58,43 @@ def fetch_employee(employee_id):
 
 @employee_blueprint.route("/<employee_id>", methods=["PUT"])
 def update_employee_route(employee_id):
-    """Update an employee's information"""
+    """Update an employee's information, including password management"""
     try:
         data = request.get_json()
-        return update_employee(employee_id, data)
+        result = update_employee(employee_id, data)
+        
+        # If successful and a new password was generated
+        if result.get("status") == 200 and "raw_password" in result.get("data", {}):
+            print(f"New password for employee {employee_id}: {result['data']['raw_password']}")
+            
+            # You may want to send the password via email here
+            # send_password_update_email(result['data']['email'], result['data']['raw_password'])
+            
+            # Remove the raw password from the response data before sending to client
+            # (optional - you might want to keep it for first-time login purposes)
+            # del result['data']['raw_password']
+        
+        return result
+    except Exception as e:
+        return response_wrapper(500, str(e), None)
+
+
+@employee_blueprint.route("/<employee_id>/reset-password", methods=["POST"])
+def reset_employee_password(employee_id):
+    """Reset an employee's password"""
+    try:
+        # Create update data with only the password reset flag
+        data = {"update_password": True}
+        result = update_employee(employee_id, data)
+        
+        # Handle the result as in the update route
+        if result.get("status") == 200 and "raw_password" in result.get("data", {}):
+            print(f"Password reset for employee {employee_id}: {result['data']['raw_password']}")
+            
+            # You may want to send the password via email here
+            # send_password_reset_email(result['data']['email'], result['data']['raw_password'])
+        
+        return result
     except Exception as e:
         return response_wrapper(500, str(e), None)
 
