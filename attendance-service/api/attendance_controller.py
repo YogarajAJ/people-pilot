@@ -32,7 +32,9 @@ def get_app_config():
         
         # If config exists, return it
         if config.exists:
-            return config.to_dict()
+            config_data = config.to_dict()
+            logging.info(f"Retrieved configuration from Firestore: {config_data}")
+            return config_data
             
         # If no config found, create default
         default_config = {
@@ -50,6 +52,7 @@ def get_app_config():
         
         # Store default configuration
         config_ref.set(default_config)
+        logging.info(f"Created default configuration in Firestore: {default_config}")
         return default_config
         
     except Exception as e:
@@ -90,23 +93,31 @@ class AttendanceAPI(Resource):
             if latitude is None or longitude is None:
                 return response_wrapper(400, "Latitude and longitude are required", None)
 
-            user_location = (latitude, longitude)
+            user_location = (float(latitude), float(longitude))
             timestamp = datetime.utcnow().isoformat()
             date_str = datetime.utcnow().date().isoformat()
 
             # Get application configuration
             app_config = get_app_config()
+            logging.info(f"Using app config for validation: {app_config}")
             
             # Extract configuration values with fallbacks
             office_location = (
-                app_config.get("office_location", {}).get("latitude", DEFAULT_OFFICE_LOCATION[0]),
-                app_config.get("office_location", {}).get("longitude", DEFAULT_OFFICE_LOCATION[1])
+                float(app_config.get("office_location", {}).get("latitude", DEFAULT_OFFICE_LOCATION[0])),
+                float(app_config.get("office_location", {}).get("longitude", DEFAULT_OFFICE_LOCATION[1]))
             )
-            allowed_radius_km = app_config.get("allowed_radius_km", DEFAULT_ALLOWED_RADIUS_KM)
+            allowed_radius_km = float(app_config.get("allowed_radius_km", DEFAULT_ALLOWED_RADIUS_KM))
             enforce_geofence = app_config.get("enforce_geofence", True)
+
+            # Add detailed logging
+            logging.info(f"Office location: {office_location}")
+            logging.info(f"User location: {user_location}")
+            logging.info(f"Allowed radius: {allowed_radius_km} km")
+            logging.info(f"Enforce geofence: {enforce_geofence}")
 
             # Validate geofence location
             distance = geodesic(office_location, user_location).km
+            logging.info(f"Calculated distance: {distance:.4f} km")
             
             # Determine attendance status
             if distance <= allowed_radius_km:

@@ -8,7 +8,6 @@ import os
 from utils.response_wrapper import response_wrapper
 
 db = FirestoreDB()
-# EMPLOYEE_API_URL = "http://127.0.0.1:5002/api/employee/all"
 EMPLOYEE_API_URL = os.environ.get('EMPLOYEE_SERVICE_URL', 'http://localhost:5002')
 
 

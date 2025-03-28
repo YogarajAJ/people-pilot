@@ -5,13 +5,12 @@ import requests
 import logging
 import os
 from utils.response_wrapper import response_wrapper
-from server.firestore import FirestoreDB  # Import your database module
-from api.attendance_controller import AttendanceByDateAPI  # Import your controller classes
+from server.firestore import FirestoreDB
 
 # API endpoints
 EMPLOYEE_SERVICE_URL = os.environ.get('EMPLOYEE_SERVICE_URL', 'http://localhost:5002')
 
-# Create db instance if needed
+# Create db instance
 db = FirestoreDB()
 
 class DashboardAPI(Resource):
@@ -32,7 +31,7 @@ class DashboardAPI(Resource):
             if not date_str:
                 date_str = datetime.utcnow().date().isoformat()
                 
-            # Get employees from employee service - FIXED URL
+            # Get employees from employee service
             try:
                 response = requests.get(f"{EMPLOYEE_SERVICE_URL}/api/employee/all")
                 if response.status_code != 200:
@@ -65,7 +64,6 @@ class DashboardAPI(Resource):
                 logging.error(f"Error fetching employees: {str(e)}")
                 return response_wrapper(500, f"Error fetching employees: {str(e)}", None)
             
-            # CHANGE 1: Direct database access instead of API call
             # Get today's attendance records directly from database
             today_records = db.get_all_records_by_date(date_str)
             
@@ -121,8 +119,8 @@ class DashboardAPI(Resource):
                 has_clock_out = record.get("clock_out") is not None
                 
                 # Determine the most recent event (clock in or clock out)
-                is_clock_out = has_clock_out
-                event_time = record.get("clock_out") if has_clock_out else record.get("clock_in")
+                is_clock_out = has_clock_out and record.get("clock_out") != ""
+                event_time = record.get("clock_out") if is_clock_out else record.get("clock_in")
                 
                 if event_time:
                     try:
@@ -152,7 +150,6 @@ class DashboardAPI(Resource):
             end_date = datetime.strptime(date_str, "%Y-%m-%d").date()
             start_date = end_date - timedelta(days=6)  # 7 days including today
             
-            # CHANGE 2: Fetch weekly data directly from the database
             # Process each day in the range manually
             current_date = start_date
             while current_date <= end_date:
@@ -160,14 +157,14 @@ class DashboardAPI(Resource):
                 day_records = db.get_all_records_by_date(current_date_str)
                 
                 # Count present employees for this day
-                present_count = len(set(record.get("employee_id") for record in day_records))
+                day_present_count = len(set(record.get("employee_id") for record in day_records))
                 
                 # Format data for chart
                 display_date = current_date.strftime("%a")  # Short day name
                 weekly_data.append({
                     "date": current_date_str,
                     "display_date": display_date,
-                    "present": present_count,
+                    "present": day_present_count,
                     "total": total_employees
                 })
                 
