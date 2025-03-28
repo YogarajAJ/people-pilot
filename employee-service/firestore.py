@@ -12,7 +12,7 @@ class FirestoreDB:
         return doc.to_dict() if doc.exists else None
 
     def get_all_documents(self, collection):
-        docs = self.db.collection(collection).stream()
+        docs = self.db.collection(collection).order_by('created_at', direction='DESCENDING').stream()
         return [doc.to_dict() for doc in docs]
         
     def get_document_by_field(self, collection, field_name, field_value):
